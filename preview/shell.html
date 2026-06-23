@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="../packages/desktop/dist/assets/index-CGUSNn2-.css" />
+    <style>* { animation: none !important; }</style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">SP</div>
+          <div class="brand-text">
+            <div class="brand-name">Sanskar Palace</div>
+            <div class="brand-sub">Billing &amp; Front Desk</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-item is-active"><span>Dashboard</span></button>
+          <button class="nav-item"><span>New Bill</span></button>
+          <button class="nav-item"><span>Bookings</span></button>
+          <button class="nav-item"><span>Invoices</span></button>
+          <button class="nav-item"><span>Rooms</span></button>
+          <button class="nav-item"><span>Reports</span></button>
+          <button class="nav-item"><span>Settings</span></button>
+        </nav>
+        <div class="sidebar-foot">
+          <div class="user-chip">
+            <div class="user-avatar">A</div>
+            <div class="user-meta">
+              <div class="user-name">Administrator</div>
+              <div class="user-role">ADMIN</div>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <main class="main">
+        <div class="screen">
+          <header class="page-head">
+            <div>
+              <h1 class="page-title">Dashboard</h1>
+              <div class="page-sub muted">Monday, 15 June 2026</div>
+            </div>
+            <div class="row">
+              <button class="btn btn-primary">+ New Bill</button>
+            </div>
+          </header>
+
+          <div class="stat-grid">
+            <div class="stat-card"><div class="stat-label">Occupancy</div><div class="stat-value money">68%</div><div class="stat-hint">17 of 25 rooms</div></div>
+            <div class="stat-card"><div class="stat-label">Today's Bills</div><div class="stat-value money">12</div><div class="stat-hint">Finalized invoices</div></div>
+            <div class="stat-card stat-accent"><div class="stat-label">Today's Sales</div><div class="stat-value money">₹48,250.00</div><div class="stat-hint">Gross collected</div></div>
+            <div class="stat-card"><div class="stat-label">Today's GST</div><div class="stat-value money">₹3,120.00</div><div class="stat-hint">CGST + SGST</div></div>
+          </div>
+
+          <section class="card card-pad" style="margin-top:22px">
+            <div class="row spread" style="margin-bottom:16px">
+              <h3>Room Status</h3>
+              <button class="btn btn-sm">Manage rooms</button>
+            </div>
+            <div class="room-board">
+              <div class="room-tile st-vacant"><div class="room-no">101</div><div class="room-type muted">Deluxe</div><span class="badge" style="background:var(--ok-soft);color:var(--st-vacant)">Vacant</span></div>
+              <div class="room-tile st-occupied"><div class="room-no">102</div><div class="room-type muted">Deluxe</div><span class="badge" style="background:var(--danger-soft);color:var(--st-occupied)">Occupied</span></div>
+              <div class="room-tile st-reserved"><div class="room-no">108</div><div class="room-type muted">Suite</div><span class="badge" style="background:var(--info-soft);color:var(--st-reserved)">Reserved</span></div>
+              <div class="room-tile st-cleaning"><div class="room-no">110</div><div class="room-type muted">Deluxe</div><span class="badge" style="background:var(--warn-soft);color:var(--st-cleaning)">Cleaning</span></div>
+              <div class="room-tile st-vacant"><div class="room-no">201</div><div class="room-type muted">Suite</div><span class="badge" style="background:var(--ok-soft);color:var(--st-vacant)">Vacant</span></div>
+              <div class="room-tile st-vacant"><div class="room-no">202</div><div class="room-type muted">Suite</div><span class="badge" style="background:var(--ok-soft);color:var(--st-vacant)">Vacant</span></div>
+            </div>
+          </section>
+
+          <div class="row" style="margin-top:20px;gap:8px">
+            <button class="btn btn-primary">Finalize &amp; Print</button>
+            <button class="btn btn-accent">Print</button>
+            <button class="btn">Record Payment</button>
+            <div class="seg"><button class="seg-btn is-on">GST</button><button class="seg-btn">Non-GST</button></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,39 @@
+{
+  "name": "@sanskar/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sanskar Palace — hotel billing & front desk",
+  "author": "Sanskar Palace",
+  "type": "module",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:renderer": "vite",
+    "build:renderer": "vite build",
+    "build:main": "node scripts/build-main.mjs",
+    "build": "node scripts/build-main.mjs && vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "start": "electron .",
+    "build:icon": "node scripts/make-icon.mjs",
+    "prepackage": "node ../server/scripts/build-server.mjs && node scripts/assemble-server.mjs",
+    "dist": "pnpm prepackage && pnpm build && electron-builder"
+  },
+  "dependencies": {
+    "@sanskar/shared": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "^31.3.1",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.23.0",
+    "jimp": "0.22.12",
+    "png-to-ico": "2.1.8",
+    "typescript": "^5.5.4",
+    "vite": "^5.3.5"
+  }
+}

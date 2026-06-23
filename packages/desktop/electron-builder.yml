@@ -1,0 +1,31 @@
+appId: com.sanskarpalace.billing
+productName: Sanskar Palace
+directories:
+  output: release
+  buildResources: build
+# The renderer (Vite) and main process (esbuild) are self-contained bundles,
+# so we don't ship node_modules — just the built output.
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+  - "!**/node_modules/**/*"
+# The API server (bundle + Prisma client + query engine) ships as a resource;
+# Electron launches it on startup (see electron/backend.ts).
+extraResources:
+  - from: resources/server
+    to: server
+asar: true
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Sanskar Palace
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico

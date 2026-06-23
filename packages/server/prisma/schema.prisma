@@ -1,0 +1,344 @@
+// Sanskar Palace — data model.
+// Money is stored as integer paise (BigInt) everywhere to avoid floating-point errors.
+// Target: PostgreSQL 16 (safe concurrent billing + gap-free invoice sequences).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Users & access control
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  RECEPTION
+  RESTAURANT
+}
+
+model User {
+  id           String    @id @default(cuid())
+  username     String    @unique
+  /// Argon2id hash — never store the plain PIN/password.
+  passwordHash String
+  displayName  String
+  role         UserRole
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  invoices  Invoice[]
+  payments  Payment[]
+  auditLogs AuditLog[]
+
+  @@index([active])
+}
+
+// ---------------------------------------------------------------------------
+// Business profile (the seller — printed on every invoice)
+// ---------------------------------------------------------------------------
+
+model BusinessProfile {
+  id          Int      @id @default(1) // single-row table, always id = 1
+  legalName   String
+  tradeName   String?
+  gstin       String?
+  address     String
+  city        String
+  stateName   String
+  /// GST state code, e.g. "08" for Rajasthan. Drives intra/inter-state logic later.
+  stateCode   String
+  pincode     String?
+  phone       String?
+  email       String?
+  /// Path/data-URI of the logo used on printed invoices.
+  logo        String?
+  /// Default footer / declaration text on invoices.
+  invoiceNote String?
+  /// Legal jurisdiction printed at the foot of the invoice, e.g. "Garoth".
+  jurisdiction String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Rooms & restaurant catalogue
+// ---------------------------------------------------------------------------
+
+enum RoomStatus {
+  VACANT
+  OCCUPIED
+  RESERVED
+  CLEANING
+  MAINTENANCE
+}
+
+model RoomType {
+  id            String  @id @default(cuid())
+  name          String  @unique // "Deluxe", "Suite", ...
+  baseRatePaise BigInt
+  /// Default GST slab for this room class (rate decided at billing per GST rules).
+  gstRatePct    Int     @default(12)
+  hsnSac        String? @default("996311")
+  rooms         Room[]
+}
+
+model Room {
+  id         String     @id @default(cuid())
+  number     String     @unique
+  floor      String?
+  status     RoomStatus @default(VACANT)
+  roomType   RoomType   @relation(fields: [roomTypeId], references: [id])
+  roomTypeId String
+  active     Boolean    @default(true)
+  stays      Stay[]
+
+  @@index([status])
+}
+
+enum MenuCategory {
+  FOOD
+  BEVERAGE
+  OTHER
+}
+
+model MenuItem {
+  id         String       @id @default(cuid())
+  name       String
+  category   MenuCategory @default(FOOD)
+  pricePaise BigInt
+  gstRatePct Int          @default(5)
+  hsnSac     String?      @default("996331")
+  active     Boolean      @default(true)
+  orderItems OrderItem[]
+
+  @@index([active])
+}
+
+// ---------------------------------------------------------------------------
+// Guests & stays (folio)
+// ---------------------------------------------------------------------------
+
+model Guest {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  /// Guest/company GSTIN for B2B invoices.
+  gstin     String?
+  idType    String? // "AADHAAR", "PASSPORT", ...
+  idNumber  String?
+  createdAt DateTime @default(now())
+
+  stays    Stay[]
+  invoices Invoice[]
+
+  @@index([phone])
+}
+
+enum StayStatus {
+  RESERVED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+model Stay {
+  id            String     @id @default(cuid())
+  guest         Guest      @relation(fields: [guestId], references: [id])
+  guestId       String
+  room          Room       @relation(fields: [roomId], references: [id])
+  roomId        String
+  /// Snapshot of the negotiated nightly rate in paise (may differ from room base).
+  nightlyRatePaise BigInt
+  gstRatePct    Int        @default(12)
+  checkIn       DateTime
+  expectedOut   DateTime?
+  checkOut      DateTime?
+  status        StayStatus @default(RESERVED)
+  adults        Int        @default(1)
+  children      Int        @default(0)
+  notes         String?
+  createdAt     DateTime   @default(now())
+
+  orders   Order[]
+  invoice  Invoice? @relation(fields: [invoiceId], references: [id])
+  invoiceId String?
+
+  @@index([status])
+  @@index([roomId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Restaurant orders (KOT) — posted to a stay folio or billed standalone
+// ---------------------------------------------------------------------------
+
+enum OrderStatus {
+  OPEN
+  BILLED
+  CANCELLED
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  /// Optional table/identifier for walk-in restaurant orders.
+  tableNo   String?
+  stay      Stay?       @relation(fields: [stayId], references: [id])
+  stayId    String?
+  status    OrderStatus @default(OPEN)
+  createdAt DateTime    @default(now())
+  items     OrderItem[]
+
+  @@index([status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId  String
+  /// Snapshot of name + price at time of order (catalogue may change later).
+  nameSnapshot String
+  pricePaise  BigInt
+  gstRatePct  Int
+  qty         Int      @default(1)
+}
+
+// ---------------------------------------------------------------------------
+// Invoices — finalized invoices are immutable; corrections go through VOID.
+// ---------------------------------------------------------------------------
+
+enum BillMode {
+  GST
+  NON_GST
+}
+
+enum InvoiceStatus {
+  DRAFT
+  FINALIZED
+  VOID
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  /// Full human-readable number, e.g. "SP/2026-27/0001". Null while DRAFT.
+  number        String?       @unique
+  /// FY series this number was drawn from, e.g. "2026-27".
+  fySeries      String?
+  /// Sequential integer within the FY series (gap-free).
+  seq           Int?
+  mode          BillMode
+  status        InvoiceStatus @default(DRAFT)
+
+  guest   Guest?  @relation(fields: [guestId], references: [id])
+  guestId String?
+
+  // Billed-to snapshot (so a later guest edit can't change a finalized invoice).
+  billToName    String
+  billToAddress String?
+  billToGstin   String?
+  billToPhone   String?
+
+  // Totals — all integer paise, computed by the shared GST engine and frozen here.
+  grossPaise         BigInt
+  totalDiscountPaise BigInt
+  taxableValuePaise  BigInt
+  totalCgstPaise     BigInt
+  totalSgstPaise     BigInt
+  totalTaxPaise      BigInt
+  roundOffPaise      BigInt @default(0)
+  grandTotalPaise    BigInt
+  amountInWords      String
+
+  lines    InvoiceLine[]
+  payments Payment[]
+  stays    Stay[]
+
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdById String
+  createdAt   DateTime @default(now())
+  finalizedAt DateTime?
+  voidedAt    DateTime?
+  voidReason  String?
+
+  @@index([status])
+  @@index([fySeries, seq])
+  @@index([createdAt])
+}
+
+model InvoiceLine {
+  id           String  @id @default(cuid())
+  invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId    String
+  category     String // ROOM | FOOD | OTHER
+  description  String
+  hsnSac       String?
+  qty          Float
+  unitPricePaise    BigInt
+  grossPaise        BigInt
+  discountPaise     BigInt @default(0)
+  taxableValuePaise BigInt
+  gstRatePct        Int
+  cgstPaise         BigInt @default(0)
+  sgstPaise         BigInt @default(0)
+  lineTotalPaise    BigInt
+}
+
+// ---------------------------------------------------------------------------
+// Payments
+// ---------------------------------------------------------------------------
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  BANK
+  OTHER
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  invoice     Invoice     @relation(fields: [invoiceId], references: [id])
+  invoiceId   String
+  mode        PaymentMode
+  amountPaise BigInt
+  reference   String? // UPI ref / card last-4 / cheque no.
+  receivedBy  User        @relation(fields: [receivedById], references: [id])
+  receivedById String
+  receivedAt  DateTime    @default(now())
+
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Gap-free invoice numbering — one counter row per FY series, bumped in a tx.
+// ---------------------------------------------------------------------------
+
+model InvoiceCounter {
+  fySeries String @id // "2026-27"
+  lastSeq  Int    @default(0)
+}
+
+// ---------------------------------------------------------------------------
+// Audit log — sensitive actions (void, discount, finalize, refund, login).
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String // "INVOICE_FINALIZE", "INVOICE_VOID", "DISCOUNT_APPLIED", ...
+  entity    String // "Invoice", "User", ...
+  entityId  String?
+  detail    String? // JSON string with before/after or context.
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}

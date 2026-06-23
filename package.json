@@ -1,0 +1,23 @@
+{
+  "name": "sanskar-billing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sanskar Palace resort billing & management software",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "pnpm --filter @sanskar/server dev",
+    "dev:desktop": "pnpm --filter @sanskar/desktop dev",
+    "db:up": "scripts\\pg-start.cmd",
+    "db:down": "scripts\\pg-stop.cmd",
+    "db:status": "scripts\\pg-status.cmd",
+    "db:migrate": "pnpm --filter @sanskar/server prisma migrate dev",
+    "db:seed": "pnpm --filter @sanskar/server seed",
+    "db:studio": "pnpm --filter @sanskar/server prisma studio"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.12.3"
+}

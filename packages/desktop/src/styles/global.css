@@ -1,0 +1,349 @@
+/*
+ * Sanskar Palace — design system.
+ * Aesthetic: premium heritage hospitality. Warm cream paper, espresso-ink
+ * primary actions, and a brass-gold accent (matching the invoice). Serif
+ * display for headings; tabular monospace for every money figure.
+ *
+ * Fonts: we prefer bundled web fonts (drop .woff2 into src/assets/fonts and
+ * uncomment @font-face below) but fall back to refined, offline-safe system
+ * faces so the app looks intentional even before fonts are added.
+ */
+
+:root {
+  /* Palette */
+  --paper: #f6f1e7;
+  --paper-raised: #fffdf8;
+  --paper-sunk: #efe8d9;
+  --ink: #221d17;
+  --ink-soft: #4b4339;
+  --muted: #7d7264;
+  --line: #e2d9c7;
+  --line-strong: #cdc1a9;
+
+  /* Premium palette: espresso-ink primary + brass-gold accent (matches the
+     invoice). Token names kept for compatibility; values elevated. */
+  --maroon: #2c241b;        /* primary — espresso ink */
+  --maroon-deep: #1b160f;
+  --marigold: #b0883a;      /* accent — brass gold */
+  --marigold-soft: #f0e6cd;
+  --gold-deep: #8a6924;     /* gold that stays legible on cream */
+  --teal: #2f6b5e;
+
+  --ok: #2f6b4f;
+  --ok-soft: #dcebdf;
+  --warn: #9a6410;
+  --warn-soft: #f3e6c8;
+  --danger: #9d3328;
+  --danger-soft: #f2d9d4;
+  --info: #355b7c;
+  --info-soft: #d9e4ee;
+
+  /* Room status hues */
+  --st-vacant: #2f6b4f;
+  --st-occupied: #9d3328;
+  --st-reserved: #355b7c;
+  --st-cleaning: #9a6410;
+  --st-maintenance: #6b6155;
+
+  /* Type */
+  --font-display: "Fraunces", "Spectral", Constantia, "Hoefler Text", Georgia, serif;
+  --font-sans: "Inter Tight", "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Code", "Consolas", ui-monospace, monospace;
+
+  /* Spacing / shape */
+  --r-sm: 5px;
+  --r-md: 9px;
+  --r-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(34, 29, 23, 0.06), 0 1px 3px rgba(34, 29, 23, 0.05);
+  --shadow-md: 0 4px 14px rgba(34, 29, 23, 0.1);
+  --shadow-lg: 0 18px 48px rgba(34, 29, 23, 0.22);
+
+  --header-h: 60px;
+  --sidebar-w: 232px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+  /* Subtle paper grain via layered radial gradients. */
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(176, 136, 58, 0.05), transparent 38%),
+    radial-gradient(circle at 88% 82%, rgba(124, 45, 45, 0.045), transparent 42%);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* Every numeric/money value gets tabular figures so columns align. */
+.num,
+.money {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: var(--maroon);
+}
+
+::selection {
+  background: var(--marigold-soft);
+}
+
+/* ---- Scrollbars ---- */
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: content-box;
+}
+
+/* ---------------------------------------------------------------- buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 15px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-strong);
+  background: var(--paper-raised);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease,
+    border-color 0.15s ease;
+  white-space: nowrap;
+}
+.btn:hover {
+  border-color: var(--muted);
+  box-shadow: var(--shadow-sm);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--maroon);
+  border-color: var(--maroon-deep);
+  color: #fdf6ee;
+}
+.btn-primary:hover {
+  background: var(--maroon-deep);
+  color: #fff;
+}
+.btn-accent {
+  background: var(--marigold);
+  border-color: #a9690f;
+  color: #2a1c06;
+}
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.btn-ghost:hover {
+  background: var(--paper-sunk);
+  box-shadow: none;
+}
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger-soft);
+}
+.btn-danger:hover {
+  background: var(--danger-soft);
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+.btn-lg {
+  padding: 11px 20px;
+  font-size: 15px;
+}
+
+/* ---------------------------------------------------------------- inputs */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.field > label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.input,
+.select,
+.textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  padding: 9px 11px;
+  width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--marigold);
+  box-shadow: 0 0 0 3px rgba(176, 136, 58, 0.18);
+}
+.input.num {
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- card */
+.card {
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-pad {
+  padding: 20px;
+}
+
+/* ---------------------------------------------------------------- table */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+.table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 9px 12px;
+  border-bottom: 1.5px solid var(--line-strong);
+  white-space: nowrap;
+}
+.table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.table tbody tr:hover {
+  background: var(--paper-sunk);
+}
+.table .right {
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------------------------------------------------------------- misc */
+.muted {
+  color: var(--muted);
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.spread {
+  justify-content: space-between;
+}
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+.grow {
+  flex: 1;
+}
+.hairline {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* ---------------------------------------------------------------- print */
+@media print {
+  body {
+    background: #fff;
+    background-image: none;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
