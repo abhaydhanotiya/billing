@@ -1614,24 +1614,35 @@
 /* ---------------------------------------------------------------- print (A4) */
 @page {
   size: A4 portrait;
-  /* Paper edge → card. Kept small because the card itself adds inner padding
-     (.pinv-body below); the two together give the content its breathing room. */
-  margin: 10mm;
+  /* No page margin — the white card bleeds to the paper edge so there is never a
+     margin "ring" that could show the app's peach background. All the breathing
+     room is provided by the card's own padding (.pinv-body below). */
+  margin: 0;
 }
 
 @media print {
 
   html,
   body {
-    /* Let the body fill the page's printable area (A4 minus the @page margins).
-       Forcing 210mm here is WIDER than the printable area, so Chromium scales the
-       whole page down to fit — shrinking the invoice and leaving white margins. */
+    /* Let the body fill the page's printable area. Forcing a fixed width here is
+       WIDER than the printable area, so Chromium scales the whole page down to
+       fit — shrinking the invoice and leaving white margins. */
     width: auto;
-    /* Print the card only — force a plain white page, no peach paper colour and
-       no grain texture (!important so the on-screen body background can't win). */
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Force a plain white page across the whole wrapper chain — no peach paper
+     colour and no grain texture can peek through at the page edges (!important
+     so the on-screen backgrounds can't win during print). */
+  html,
+  body,
+  #root,
+  .layout,
+  .main,
+  .screen {
     background: #fff !important;
     background-image: none !important;
-    /* Keep the ink header bar, grand-total bar and logo colours on paper. */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -1677,15 +1688,17 @@
     border: 0;
     border-radius: 0;
     margin: 0;
-    /* Fill the full printable area (A4 minus the @page margins). */
+    /* White card fills the whole physical page — no peach can show anywhere. */
     max-width: none;
     width: 100%;
+    background: #fff;
   }
 
   .pinv-body {
-    /* Inner card padding — content sits inset from the card edges, the same
-       framed look as on screen, instead of hugging the paper margins. */
-    padding: 11mm 12mm 10mm;
+    /* This padding IS the printed margin now (the @page margin is 0). It keeps
+       the content comfortably inset from the paper edges and framed inside the
+       card, the same look as on screen. */
+    padding: 16mm 15mm 14mm;
   }
 
   /* Keep the summary + signature blocks intact across a page break. */

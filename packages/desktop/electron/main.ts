@@ -51,10 +51,10 @@ ipcMain.handle("invoice:print-to-pdf", async () => {
   const data = await mainWindow.webContents.printToPDF({
     pageSize: "A4",
     printBackground: true,
-    // No printer margins — the invoice's CSS @page rule owns the 12mm margins.
-    // Using "default" here would stack a second margin on top, shrinking the
-    // invoice and pushing it to the top-left corner of the page.
+    // No printer margins, and let the CSS @page rule own the page geometry so the
+    // white invoice card bleeds to the paper edge (no peach edge strips).
     margins: { marginType: "none" },
+    preferCSSPageSize: true,
   });
   return data.toString("base64");
 });
@@ -82,7 +82,8 @@ ipcMain.handle("invoice:save-pdf", async (_e, suggestedName: string) => {
   const data = await mainWindow.webContents.printToPDF({
     pageSize: "A4",
     printBackground: true,
-    margins: { marginType: "none" }, // CSS @page owns the margins (avoid double margin)
+    margins: { marginType: "none" }, // CSS @page owns the page geometry (full-bleed)
+    preferCSSPageSize: true,
   });
   await fs.promises.writeFile(filePath, data);
   return filePath;
