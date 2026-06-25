@@ -10,6 +10,7 @@ type Tx = Prisma.TransactionClient | PrismaClient;
 export interface BillToInput {
   guestId?: string;
   name: string;
+  company?: string;
   address?: string;
   gstin?: string;
   phone?: string;
@@ -23,6 +24,12 @@ export interface InvoiceDraftInput {
   roundToRupee?: boolean;
   /** Optional booking this bill settles — links the stay to the invoice. */
   stayId?: string;
+  /** User-set dates (ISO). invoiceDate defaults to now; check-in/out optional. */
+  invoiceDate?: string;
+  checkInDate?: string;
+  checkOutDate?: string;
+  /** Optional manual invoice number; when omitted the counter assigns it. */
+  manualNumber?: number;
 }
 
 /** Map a computed bill onto the Prisma create payload for an invoice + its lines. */
@@ -37,8 +44,13 @@ function toInvoiceData(input: InvoiceDraftInput, createdById: string): Prisma.In
   return {
     mode: input.mode,
     status: "DRAFT",
+    invoiceDate: input.invoiceDate ? new Date(input.invoiceDate) : new Date(),
+    checkInDate: input.checkInDate ? new Date(input.checkInDate) : undefined,
+    checkOutDate: input.checkOutDate ? new Date(input.checkOutDate) : undefined,
+    manualNumber: input.manualNumber ?? null,
     guest: input.billTo.guestId ? { connect: { id: input.billTo.guestId } } : undefined,
     billToName: input.billTo.name,
+    billToCompany: input.billTo.company,
     billToAddress: input.billTo.address,
     billToGstin: input.billTo.gstin,
     billToPhone: input.billTo.phone,
@@ -122,12 +134,27 @@ export async function finalizeInvoice(id: string, userId: string, now: Date) {
     // SRE-1). One continuous counter per prefix; fySeries is recorded for reporting.
     const prefix = inv.mode === "GST" ? config.invoicePrefixGst : config.invoicePrefixNonGst;
     const fySeries = fiscalYearSeries(now);
-    const counter = await tx.invoiceCounter.upsert({
-      where: { fySeries: prefix },
-      create: { fySeries: prefix, lastSeq: 1 },
-      update: { lastSeq: { increment: 1 } },
-    });
-    const seq = counter.lastSeq;
+
+    let seq: number;
+    if (inv.manualNumber != null) {
+      // Manual number chosen at billing time. Reject if already used; raise (never
+      // lower) the auto-counter so future auto numbers can't collide.
+      seq = inv.manualNumber;
+      const clash = await tx.invoice.findFirst({
+        where: { number: formatInvoiceNumber(prefix, seq), status: { not: "VOID" } },
+      });
+      if (clash) throw new HttpError(409, `Invoice number ${formatInvoiceNumber(prefix, seq)} already exists.`);
+      const existing = await tx.invoiceCounter.findUnique({ where: { fySeries: prefix } });
+      if (!existing) await tx.invoiceCounter.create({ data: { fySeries: prefix, lastSeq: seq } });
+      else if (existing.lastSeq < seq) await tx.invoiceCounter.update({ where: { fySeries: prefix }, data: { lastSeq: seq } });
+    } else {
+      const counter = await tx.invoiceCounter.upsert({
+        where: { fySeries: prefix },
+        create: { fySeries: prefix, lastSeq: 1 },
+        update: { lastSeq: { increment: 1 } },
+      });
+      seq = counter.lastSeq;
+    }
     const number = formatInvoiceNumber(prefix, seq);
 
     const finalized = await tx.invoice.update({

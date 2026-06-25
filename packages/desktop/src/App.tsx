@@ -40,7 +40,12 @@ export function App() {
       screen = <DashboardScreen />;
       break;
     case "new-bill":
-      screen = <NewBillScreen stayId={param} initialMode={param2} />;
+      screen =
+        param === "edit" ? (
+          <NewBillScreen editId={param2} />
+        ) : (
+          <NewBillScreen stayId={param} initialMode={param2} />
+        );
       break;
     case "bookings":
       screen = <BookingsScreen />;

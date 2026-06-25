@@ -41,6 +41,7 @@ export interface MenuItem {
 export interface Guest {
   id: string;
   name: string;
+  company?: string | null;
   phone?: string | null;
   email?: string | null;
   address?: string | null;
@@ -131,6 +132,7 @@ export interface Invoice {
   mode: BillMode;
   status: InvoiceStatus;
   billToName: string;
+  billToCompany?: string | null;
   billToAddress?: string | null;
   billToGstin?: string | null;
   billToPhone?: string | null;
@@ -143,6 +145,10 @@ export interface Invoice {
   roundOffPaise: number;
   grandTotalPaise: number;
   amountInWords: string;
+  invoiceDate?: string | null;
+  checkInDate?: string | null;
+  checkOutDate?: string | null;
+  manualNumber?: number | null;
   createdAt: string;
   finalizedAt?: string | null;
   lines?: InvoiceLine[];

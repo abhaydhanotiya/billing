@@ -14,6 +14,7 @@ import { paymentRoutes } from "./routes/payments.js";
 import { reportRoutes } from "./routes/reports.js";
 import { userRoutes } from "./routes/users.js";
 import { auditRoutes } from "./routes/audit.js";
+import { invoiceCounterRoutes } from "./routes/invoiceCounters.js";
 import { HttpError } from "./services/invoiceService.js";
 import { prisma } from "./db.js";
 
@@ -85,6 +86,7 @@ export async function buildApp() {
       await api.register(reportRoutes);
       await api.register(userRoutes);
       await api.register(auditRoutes);
+      await api.register(invoiceCounterRoutes);
     },
     { prefix: "/api" },
   );

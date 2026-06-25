@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { PageHeader } from "../components/Layout.js";
 import { Icon } from "../components/Icon.js";
+import { InvoiceNumbering } from "../components/InvoiceNumbering.js";
 import { useApi } from "../lib/useApi.js";
 import { api, ApiError, getServerUrl, setServerUrl } from "../lib/api.js";
 import { useToast } from "../lib/toast.js";
@@ -127,6 +128,12 @@ export function SettingsScreen() {
           On each client PC, set this to the server PC's LAN address.
         </p>
       </section>
+
+      {isAdmin && (
+        <div style={{ marginBottom: 18 }}>
+          <InvoiceNumbering />
+        </div>
+      )}
 
       <section className="card card-pad">
         <h3 style={{ marginBottom: 14 }}>Business Profile</h3>

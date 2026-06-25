@@ -3,6 +3,7 @@ import { PageHeader } from "../components/Layout.js";
 import { Icon } from "../components/Icon.js";
 import { StatusBadge } from "../components/StatusBadge.js";
 import { BookingModal } from "../components/BookingModal.js";
+import { PromptModal } from "../components/PromptModal.js";
 import { useApi } from "../lib/useApi.js";
 import { api, ApiError } from "../lib/api.js";
 import { navigate } from "../lib/router.js";
@@ -21,6 +22,7 @@ export function RoomDetailScreen({ id }: { id: string }) {
   const toast = useToast();
   const isAdmin = useHasRole();
   const [showBooking, setShowBooking] = useState(false);
+  const [showRename, setShowRename] = useState(false);
 
   const room = useApi(() => api.get<{ room: RoomDetail }>(`/rooms/${id}`), [id]);
   const types = useApi(() => api.get<{ roomTypes: RoomType[] }>("/room-types"), []);
@@ -43,9 +45,9 @@ export function RoomDetailScreen({ id }: { id: string }) {
       toast.push("error", e instanceof ApiError ? e.message : "Update failed.");
     }
   }
-  async function rename() {
-    const number = window.prompt("Room number:", r?.number);
-    if (!number || number === r?.number) return;
+  async function rename(number: string) {
+    setShowRename(false);
+    if (number === r?.number) return;
     try {
       await api.patch(`/rooms/${id}`, { number });
       toast.push("ok", "Room renamed.");
@@ -116,7 +118,7 @@ export function RoomDetailScreen({ id }: { id: string }) {
           </div>
           <div className="row" style={{ gap: 8 }}>
             {canBook && <button className="btn btn-primary" onClick={() => setShowBooking(true)}>+ New Booking</button>}
-            {isAdmin && <button className="btn btn-sm" onClick={rename}>Rename</button>}
+            {isAdmin && <button className="btn btn-sm" onClick={() => setShowRename(true)}>Rename</button>}
             {isAdmin && <button className="btn btn-sm btn-danger" onClick={remove}>Delete</button>}
           </div>
         </div>
@@ -167,6 +169,17 @@ export function RoomDetailScreen({ id }: { id: string }) {
           roomId={r.id}
           onClose={() => setShowBooking(false)}
           onCreated={() => { setShowBooking(false); toast.push("ok", "Booking created."); room.reload(); }}
+        />
+      )}
+
+      {showRename && (
+        <PromptModal
+          title="Rename room"
+          label="Room number"
+          defaultValue={r.number}
+          confirmText="Rename"
+          onCancel={() => setShowRename(false)}
+          onSubmit={rename}
         />
       )}
     </div>

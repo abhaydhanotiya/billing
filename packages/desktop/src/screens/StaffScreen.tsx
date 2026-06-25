@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PageHeader } from "../components/Layout.js";
+import { PromptModal } from "../components/PromptModal.js";
 import { useApi } from "../lib/useApi.js";
 import { api, ApiError } from "../lib/api.js";
 import { useToast } from "../lib/toast.js";
@@ -12,6 +13,7 @@ export function StaffScreen() {
   const toast = useToast();
   const users = useApi(() => api.get<{ users: StaffUser[] }>("/users"), []);
   const [form, setForm] = useState({ username: "", displayName: "", role: "RECEPTION" as Role, pin: "" });
+  const [resetUser, setResetUser] = useState<StaffUser | null>(null);
 
   async function add() {
     if (!form.username.trim() || !form.displayName.trim() || form.pin.length < 4) {
@@ -52,14 +54,15 @@ export function StaffScreen() {
     }
   }
 
-  async function resetPin(u: StaffUser) {
-    const pin = window.prompt(`New PIN for ${u.displayName} (4+ characters):`);
-    if (!pin) return;
+  async function resetPin(pin: string) {
+    if (!resetUser) return;
     try {
-      await api.post(`/users/${u.id}/reset-pin`, { pin });
+      await api.post(`/users/${resetUser.id}/reset-pin`, { pin });
       toast.push("ok", "PIN reset.");
     } catch (e) {
       toast.push("error", e instanceof ApiError ? e.message : "Reset failed.");
+    } finally {
+      setResetUser(null);
     }
   }
 
@@ -110,7 +113,7 @@ export function StaffScreen() {
                   <td className="muted">{formatDate(u.createdAt)}</td>
                   <td className="right">
                     <div className="row" style={{ justifyContent: "flex-end", gap: 6 }}>
-                      <button className="btn btn-sm" onClick={() => resetPin(u)}>Reset PIN</button>
+                      <button className="btn btn-sm" onClick={() => setResetUser(u)}>Reset PIN</button>
                       <button className="btn btn-sm" onClick={() => toggleActive(u)}>{u.active ? "Disable" : "Enable"}</button>
                     </div>
                   </td>
@@ -120,6 +123,17 @@ export function StaffScreen() {
           </table>
         )}
       </div>
+
+      {resetUser && (
+        <PromptModal
+          title={`Reset PIN — ${resetUser.displayName}`}
+          label="New PIN (4+ characters)"
+          password
+          confirmText="Reset PIN"
+          onCancel={() => setResetUser(null)}
+          onSubmit={resetPin}
+        />
+      )}
     </div>
   );
 }

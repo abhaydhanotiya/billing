@@ -26,6 +26,7 @@ const draftSchema = z.object({
   billTo: z.object({
     guestId: z.string().optional(),
     name: z.string().min(1),
+    company: z.string().optional(),
     address: z.string().optional(),
     gstin: z.string().optional(),
     phone: z.string().optional(),
@@ -39,6 +40,10 @@ const draftSchema = z.object({
     .optional(),
   roundToRupee: z.boolean().optional(),
   stayId: z.string().optional(),
+  invoiceDate: z.string().optional(),
+  checkInDate: z.string().optional(),
+  checkOutDate: z.string().optional(),
+  manualNumber: z.number().int().min(1).max(1_000_000).optional(),
 });
 
 export async function invoiceRoutes(app: FastifyInstance) {
@@ -130,6 +135,32 @@ export async function invoiceRoutes(app: FastifyInstance) {
     if (!body.success) return reply.code(400).send({ error: "reason is required" });
     const invoice = await voidInvoice(id, req.user.id, body.data.reason, new Date());
     return { invoice };
+  });
+
+  // Delete an invoice. Drafts: anyone billing. Voided: admin only (leaves a gap in
+  // the number series). Finalized: never — it must be voided first.
+  app.delete("/invoices/:id", { preHandler: [billing] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const inv = await prisma.invoice.findUnique({ where: { id } });
+    if (!inv) return reply.code(404).send({ error: "Invoice not found" });
+    if (inv.status === "FINALIZED") {
+      return reply.code(409).send({ error: "A finalized invoice must be voided before it can be deleted." });
+    }
+    if (inv.status === "VOID" && req.user.role !== "ADMIN") {
+      return reply.code(403).send({ error: "Only an admin can delete a voided invoice." });
+    }
+    await prisma.$transaction(async (tx) => {
+      await tx.payment.deleteMany({ where: { invoiceId: id } });
+      await tx.stay.updateMany({ where: { invoiceId: id }, data: { invoiceId: null } });
+      await tx.invoiceLine.deleteMany({ where: { invoiceId: id } });
+      if (inv.status === "VOID") {
+        await tx.auditLog.create({
+          data: { userId: req.user.id, action: "INVOICE_DELETE", entity: "Invoice", entityId: id, detail: JSON.stringify({ number: inv.number }) },
+        });
+      }
+      await tx.invoice.delete({ where: { id } });
+    });
+    return { ok: true };
   });
 }
 

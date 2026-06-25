@@ -6,8 +6,9 @@ import { useApi } from "../lib/useApi.js";
 import { api, ApiError } from "../lib/api.js";
 import { navigate } from "../lib/router.js";
 import { useToast } from "../lib/toast.js";
+import { useHasRole } from "../lib/auth.js";
 import { formatAmount, formatINR, rupeesToPaise } from "../lib/format.js";
-import type { BillMode, Guest, MenuItem, Room, Stay } from "../lib/types.js";
+import type { BillMode, Guest, Invoice, MenuItem, Room, Stay } from "../lib/types.js";
 
 /** Whole nights between two dates, minimum 1. */
 function nightsBetween(from: string, to?: string | null): number {
@@ -44,7 +45,23 @@ function blankLine(over: Partial<EditLine> = {}): EditLine {
 
 const GST_RATES = [0, 5, 12, 18, 28];
 
-export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initialMode?: string }) {
+function isoDate(): string {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
+function toDateInput(d?: string | null): string {
+  return d ? new Date(d).toISOString().slice(0, 10) : "";
+}
+
+export function NewBillScreen({
+  stayId,
+  initialMode,
+  editId,
+}: {
+  stayId?: string;
+  initialMode?: string;
+  editId?: string;
+}) {
   const toast = useToast();
   const [mode, setMode] = useState<BillMode>(initialMode === "NON_GST" ? "NON_GST" : "GST");
   const [lines, setLines] = useState<EditLine[]>([blankLine({ category: "OTHER" })]);
@@ -53,9 +70,28 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
   const [busy, setBusy] = useState(false);
   const [bookingLabel, setBookingLabel] = useState<string | null>(null);
 
+  // Dates — invoice date filled by default; check-in/out optional (or from a booking).
+  const [invoiceDate, setInvoiceDate] = useState(isoDate());
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkOutDate, setCheckOutDate] = useState("");
+
+  // Manual invoice number (admin only; blank = auto from the gap-free counter).
+  const isAdmin = useHasRole();
+  const [manualNumber, setManualNumber] = useState("");
+  const counters = useApi(
+    () =>
+      isAdmin
+        ? api.get<{ counters: { prefix: string; label: string; nextNumber: number }[] }>("/invoice-counters")
+        : Promise.resolve(null),
+    [isAdmin],
+  );
+  // Route returns [GST, Non-GST].
+  const series = mode === "GST" ? counters.data?.counters?.[0] : counters.data?.counters?.[1];
+
   // Bill-to
   const [guestId, setGuestId] = useState<string | undefined>();
   const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [gstin, setGstin] = useState("");
   const [address, setAddress] = useState("");
@@ -106,14 +142,53 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
         if (stay.guest) {
           setGuestId(stay.guest.id);
           setName(stay.guest.name);
+          setCompany(stay.guest.company ?? "");
           setPhone(stay.guest.phone ?? "");
           setGstin(stay.guest.gstin ?? "");
           setAddress(stay.guest.address ?? "");
         }
+        setCheckInDate(toDateInput(stay.checkIn));
+        setCheckOutDate(toDateInput(stay.checkOut ?? stay.expectedOut));
         setBookingLabel(`Room ${stay.room?.number ?? ""} · ${stay.guest?.name ?? "guest"}`);
       })
       .catch((e) => toast.push("error", e instanceof ApiError ? e.message : "Could not load booking."));
   }, [stayId, toast]);
+
+  // Edit mode (/new-bill/edit/:id) — load an existing draft into the editor once.
+  const loadedEdit = useRef(false);
+  useEffect(() => {
+    if (!editId || loadedEdit.current) return;
+    loadedEdit.current = true;
+    api
+      .get<{ invoice: Invoice }>(`/invoices/${editId}`)
+      .then(({ invoice }) => {
+        setMode(invoice.mode);
+        setName(invoice.billToName);
+        setCompany(invoice.billToCompany ?? "");
+        setPhone(invoice.billToPhone ?? "");
+        setGstin(invoice.billToGstin ?? "");
+        setAddress(invoice.billToAddress ?? "");
+        setInvoiceDate(toDateInput(invoice.invoiceDate) || isoDate());
+        setCheckInDate(toDateInput(invoice.checkInDate));
+        setCheckOutDate(toDateInput(invoice.checkOutDate));
+        setManualNumber(invoice.manualNumber ? String(invoice.manualNumber) : "");
+        setRoundToRupee(invoice.roundOffPaise !== 0 || true);
+        setLines(
+          (invoice.lines ?? []).map((l) =>
+            blankLine({
+              category: l.category,
+              description: l.description,
+              hsnSac: l.hsnSac ?? "",
+              qty: String(l.qty),
+              unitPrice: String(l.unitPricePaise / 100),
+              gstRatePct: l.gstRatePct,
+            }),
+          ),
+        );
+        setBookingLabel("Editing draft");
+      })
+      .catch((e) => toast.push("error", e instanceof ApiError ? e.message : "Could not load the draft."));
+  }, [editId, toast]);
 
   // Convert editable lines to engine input (skips empty rows).
   const engineLines: LineItemInput[] = useMemo(
@@ -178,6 +253,7 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
   function selectGuest(g: Guest) {
     setGuestId(g.id);
     setName(g.name);
+    setCompany(g.company ?? "");
     setPhone(g.phone ?? "");
     setGstin(g.gstin ?? "");
     setAddress(g.address ?? "");
@@ -190,6 +266,7 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
       billTo: {
         guestId,
         name: name.trim() || "Walk-in Guest",
+        company: company.trim() || undefined,
         phone: phone.trim() || undefined,
         gstin: gstin.trim() || undefined,
         address: address.trim() || undefined,
@@ -201,6 +278,10 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
       billDiscount: billDiscountPct ? { discountPercent: Number(billDiscountPct) } : undefined,
       roundToRupee,
       stayId, // links the bill to the booking when present
+      invoiceDate: invoiceDate ? new Date(`${invoiceDate}T00:00:00`).toISOString() : undefined,
+      checkInDate: checkInDate ? new Date(`${checkInDate}T00:00:00`).toISOString() : undefined,
+      checkOutDate: checkOutDate ? new Date(`${checkOutDate}T00:00:00`).toISOString() : undefined,
+      manualNumber: manualNumber.trim() ? Number(manualNumber.trim()) : undefined,
     };
   }
 
@@ -211,7 +292,10 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
     }
     setBusy(true);
     try {
-      const { invoice } = await api.post<{ invoice: { id: string } }>("/invoices", buildPayload());
+      // Edit mode updates the existing draft; otherwise create a new one.
+      const { invoice } = editId
+        ? await api.put<{ invoice: { id: string } }>(`/invoices/${editId}`, buildPayload())
+        : await api.post<{ invoice: { id: string } }>("/invoices", buildPayload());
       if (finalize) {
         await api.post(`/invoices/${invoice.id}/finalize`);
         toast.push("ok", "Invoice finalized.");
@@ -275,8 +359,14 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
             <div className="grid-2" style={{ marginTop: 14 }}>
               <div className="field">
                 <label>Name</label>
-                <input className="input" value={name} onChange={(e) => { setName(e.target.value); setGuestId(undefined); }} placeholder="Guest / company name" />
+                <input className="input" value={name} onChange={(e) => { setName(e.target.value); setGuestId(undefined); }} placeholder="Guest / contact name" />
               </div>
+              {mode === "GST" && (
+                <div className="field">
+                  <label>Company (for GST / B2B)</label>
+                  <input className="input" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="Business / company name" />
+                </div>
+              )}
               <div className="field">
                 <label>Phone</label>
                 <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
@@ -291,6 +381,27 @@ export function NewBillScreen({ stayId, initialMode }: { stayId?: string; initia
                 <label>Address</label>
                 <input className="input" value={address} onChange={(e) => setAddress(e.target.value)} />
               </div>
+            </div>
+
+            <div className="row" style={{ gap: 12, marginTop: 14, flexWrap: "wrap" }}>
+              <div className="field"><label>Invoice Date</label><input type="date" className="input" value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} /></div>
+              <div className="field"><label>Check-In</label><input type="date" className="input" value={checkInDate} onChange={(e) => setCheckInDate(e.target.value)} /></div>
+              <div className="field"><label>Check-Out</label><input type="date" className="input" value={checkOutDate} onChange={(e) => setCheckOutDate(e.target.value)} /></div>
+              {isAdmin && (
+                <div className="field">
+                  <label>Invoice No. (optional)</label>
+                  <div className="row" style={{ gap: 6 }}>
+                    <span className="muted" style={{ fontWeight: 600 }}>{series?.prefix ?? (mode === "GST" ? "SR" : "SRE")}-</span>
+                    <input
+                      className="input num"
+                      style={{ width: 100 }}
+                      placeholder={series ? `${series.nextNumber} (auto)` : "auto"}
+                      value={manualNumber}
+                      onChange={(e) => setManualNumber(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 

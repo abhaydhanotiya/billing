@@ -129,6 +129,7 @@ model MenuItem {
 model Guest {
   id        String   @id @default(cuid())
   name      String
+  company   String?
   phone     String?
   email     String?
   address   String?
@@ -244,6 +245,7 @@ model Invoice {
 
   // Billed-to snapshot (so a later guest edit can't change a finalized invoice).
   billToName    String
+  billToCompany String?
   billToAddress String?
   billToGstin   String?
   billToPhone   String?
@@ -262,6 +264,14 @@ model Invoice {
   lines    InvoiceLine[]
   payments Payment[]
   stays    Stay[]
+
+  // Optional dates the user can set on the bill (independent of any linked stay).
+  invoiceDate  DateTime?
+  checkInDate  DateTime?
+  checkOutDate DateTime?
+  // Optional manual invoice number (the numeric part) chosen at billing time;
+  // when null the gap-free counter assigns it on finalize.
+  manualNumber Int?
 
   createdBy   User     @relation(fields: [createdById], references: [id])
   createdById String

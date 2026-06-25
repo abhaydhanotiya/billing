@@ -1032,12 +1032,19 @@
   letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--pi-soft);
+  /* letter-spacing adds a trailing gap after the last letter; pull it back so the
+     label sits flush-right and lines up with the number below. */
+  margin-right: -0.26em;
 }
 .pinv-number {
   font-family: var(--font-display);
   font-size: 25px;
   font-weight: 600;
   margin-top: 4px;
+  /* Lining tabular figures keep every digit the same width with even bearing, so
+     the number lands flush-right and lines up with the TAX INVOICE label above. */
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum" 1, "tnum" 1;
 }
 .pinv-rule {
   height: 2px;

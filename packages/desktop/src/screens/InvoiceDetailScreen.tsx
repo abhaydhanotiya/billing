@@ -9,12 +9,14 @@ import { useHasRole } from "../lib/auth.js";
 import { formatAmount, formatINR, formatDate } from "../lib/format.js";
 import type { BusinessProfile, Invoice, InvoiceLine, PaymentMode } from "../lib/types.js";
 import { PaymentModal } from "../components/PaymentModal.js";
+import { PromptModal } from "../components/PromptModal.js";
 
 export function InvoiceDetailScreen({ id }: { id: string }) {
   const toast = useToast();
   const isAdmin = useHasRole();
   const [busy, setBusy] = useState(false);
   const [showPay, setShowPay] = useState(false);
+  const [showVoid, setShowVoid] = useState(false);
 
   const inv = useApi(() => api.get<{ invoice: Invoice }>(`/invoices/${id}`), [id]);
   const biz = useApi(() => api.get<{ profile: BusinessProfile | null }>("/business-profile"), []);
@@ -35,9 +37,8 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
     }
   }
 
-  async function voidInvoice() {
-    const reason = window.prompt("Reason for voiding this invoice?");
-    if (!reason) return;
+  async function voidInvoice(reason: string) {
+    setShowVoid(false);
     setBusy(true);
     try {
       await api.post(`/invoices/${id}/void`, { reason });
@@ -57,6 +58,23 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
     inv.reload();
   }
 
+  async function deleteInvoice() {
+    const isVoid = inv.data?.invoice?.status === "VOID";
+    const msg = isVoid
+      ? `Permanently delete voided invoice ${inv.data?.invoice?.number ?? ""}?\n\nThis removes it entirely and leaves a GAP in your invoice numbering. (Voiding already cancels it — deleting is optional.)`
+      : "Delete this draft? This cannot be undone.";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try {
+      await api.del(`/invoices/${id}`);
+      toast.push("ok", isVoid ? "Invoice deleted." : "Draft deleted.");
+      navigate("/invoices");
+    } catch (e) {
+      toast.push("error", e instanceof ApiError ? e.message : "Delete failed.");
+      setBusy(false);
+    }
+  }
+
   if (inv.loading) return <div className="screen muted" style={{ padding: 40 }}>Loading invoice…</div>;
   if (inv.error || !invoice)
     return <div className="screen alert alert-error" style={{ margin: 40 }}>{inv.error ?? "Not found"}</div>;
@@ -68,6 +86,9 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
   const isGst = invoice.mode === "GST";
 
   const stay = invoice.stays?.[0];
+  // Dates: prefer the ones set on the invoice, fall back to the linked booking.
+  const checkIn = invoice.checkInDate ?? stay?.checkIn;
+  const checkOut = invoice.checkOutDate ?? stay?.checkOut ?? stay?.expectedOut;
   const paymentMode = payments[payments.length - 1]?.mode;
   const sellerName = profile?.tradeName ?? profile?.legalName ?? "Sanskar Palace";
   const jurisdiction = profile?.jurisdiction;
@@ -116,8 +137,21 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
         <div className="row" style={{ gap: 8 }}>
           <StatusBadge status={invoice.status} />
           {invoice.status === "DRAFT" && (
-            <button className="btn btn-primary" disabled={busy} onClick={finalize}>
-              <Icon name="check" size={16} /> Finalize
+            <>
+              <button className="btn" disabled={busy} onClick={() => navigate(`/new-bill/edit/${id}`)}>
+                Edit
+              </button>
+              <button className="btn btn-danger" disabled={busy} onClick={deleteInvoice}>
+                Delete
+              </button>
+              <button className="btn btn-primary" disabled={busy} onClick={finalize}>
+                <Icon name="check" size={16} /> Finalize
+              </button>
+            </>
+          )}
+          {invoice.status === "VOID" && isAdmin && (
+            <button className="btn btn-danger" disabled={busy} onClick={deleteInvoice} title="Permanently delete this voided invoice">
+              <Icon name="trash" size={16} /> Delete
             </button>
           )}
           {invoice.status === "FINALIZED" && (
@@ -127,7 +161,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
               <button className="btn" onClick={shareWhatsApp} title="Send on WhatsApp"><Icon name="share" size={16} /> WhatsApp</button>
               <button className="btn" onClick={shareEmail} title="Email the bill"><Icon name="share" size={16} /> Email</button>
               {isAdmin && (
-                <button className="btn btn-danger" disabled={busy} onClick={voidInvoice}>Void</button>
+                <button className="btn btn-danger" disabled={busy} onClick={() => setShowVoid(true)}>Void</button>
               )}
             </>
           )}
@@ -178,6 +212,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
             <div>
               <div className="pinv-label">Billed To</div>
               <div className="pinv-party-name">{invoice.billToName}</div>
+              {invoice.billToCompany && <div className="pinv-party-line" style={{ fontWeight: 600, color: "var(--pi-ink)" }}>{invoice.billToCompany}</div>}
               {invoice.billToAddress && <div className="pinv-party-line">{invoice.billToAddress}</div>}
               {invoice.billToPhone && <div className="pinv-party-line">{invoice.billToPhone}</div>}
               {invoice.billToGstin && <div className="pinv-party-line">GSTIN {invoice.billToGstin}</div>}
@@ -185,7 +220,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
             <div className="pinv-stay">
               <div className="pinv-kv">
                 <span>Invoice Date</span>
-                <b>{formatDate(invoice.finalizedAt ?? invoice.createdAt)}</b>
+                <b>{formatDate(invoice.invoiceDate ?? invoice.finalizedAt ?? invoice.createdAt)}</b>
               </div>
               {stay?.room && (
                 <div className="pinv-kv">
@@ -193,16 +228,16 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
                   <b>{stay.room.number}{stay.room.roomType ? ` · ${stay.room.roomType.name}` : ""}</b>
                 </div>
               )}
-              {stay?.checkIn && (
+              {checkIn && (
                 <div className="pinv-kv">
                   <span>Check-In</span>
-                  <b>{formatDate(stay.checkIn)}</b>
+                  <b>{formatDate(checkIn)}</b>
                 </div>
               )}
-              {(stay?.checkOut || stay?.expectedOut) && (
+              {checkOut && (
                 <div className="pinv-kv">
                   <span>Check-Out</span>
-                  <b>{formatDate(stay.checkOut ?? stay.expectedOut)}</b>
+                  <b>{formatDate(checkOut)}</b>
                 </div>
               )}
             </div>
@@ -314,7 +349,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
         </div>
         <div className="rcpt-rule" />
         <div className="rcpt-row"><span>{isGst ? "Tax Invoice" : "Invoice"}</span><span>{invoice.number ?? "—"}</span></div>
-        <div className="rcpt-row"><span>Date</span><span>{formatDate(invoice.finalizedAt ?? invoice.createdAt)}</span></div>
+        <div className="rcpt-row"><span>Date</span><span>{formatDate(invoice.invoiceDate ?? invoice.finalizedAt ?? invoice.createdAt)}</span></div>
         <div className="rcpt-row"><span>To</span><span>{invoice.billToName}</span></div>
         <div className="rcpt-rule dashed" />
         {lines.map((l) => (
@@ -348,6 +383,18 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
           balancePaise={balance > 0 ? balance : invoice.grandTotalPaise}
           onClose={() => setShowPay(false)}
           onSubmit={recordPayment}
+        />
+      )}
+
+      {showVoid && (
+        <PromptModal
+          title="Void this invoice?"
+          label="Reason (kept for the audit trail)"
+          placeholder="e.g. wrong guest, cancelled booking…"
+          confirmText="Void invoice"
+          danger
+          onCancel={() => setShowVoid(false)}
+          onSubmit={voidInvoice}
         />
       )}
     </div>

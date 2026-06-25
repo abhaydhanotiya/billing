@@ -5,7 +5,7 @@ import { Icon } from "../components/Icon.js";
 import { useApi } from "../lib/useApi.js";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/router.js";
-import { formatINR, formatDateTime } from "../lib/format.js";
+import { formatINR, formatDate } from "../lib/format.js";
 import type { Invoice, InvoiceStatus } from "../lib/types.js";
 
 const FILTERS: { key: InvoiceStatus | "ALL"; label: string }[] = [
@@ -87,7 +87,7 @@ export function InvoicesScreen() {
                 return (
                   <tr key={inv.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/invoices/${inv.id}`)}>
                     <td><strong>{inv.number ?? <span className="muted">— draft —</span>}</strong></td>
-                    <td className="muted">{formatDateTime(inv.finalizedAt ?? inv.createdAt)}</td>
+                    <td className="muted">{formatDate(inv.invoiceDate ?? inv.finalizedAt ?? inv.createdAt)}</td>
                     <td>{inv.billToName}</td>
                     <td><span className="tag">{inv.mode === "GST" ? "GST" : "Non-GST"}</span></td>
                     <td><StatusBadge status={inv.status} /></td>
