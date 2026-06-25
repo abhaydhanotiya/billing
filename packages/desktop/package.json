@@ -16,7 +16,7 @@
     "start": "electron .",
     "build:icon": "node scripts/make-icon.mjs",
     "prepackage": "node ../server/scripts/build-server.mjs && node scripts/assemble-server.mjs",
-    "dist": "pnpm prepackage && pnpm build && electron-builder"
+    "dist": "pnpm prepackage && pnpm build && electron-builder --publish never"
   },
   "dependencies": {
     "@sanskar/shared": "workspace:*",

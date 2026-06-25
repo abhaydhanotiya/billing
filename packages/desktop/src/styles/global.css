@@ -4,10 +4,29 @@
  * primary actions, and a brass-gold accent (matching the invoice). Serif
  * display for headings; tabular monospace for every money figure.
  *
- * Fonts: we prefer bundled web fonts (drop .woff2 into src/assets/fonts and
- * uncomment @font-face below) but fall back to refined, offline-safe system
- * faces so the app looks intentional even before fonts are added.
+ * Fonts: bundled below as @font-face (latin woff2 in src/assets/fonts) so the
+ * app — and especially the printed invoice — renders identically on every PC,
+ * regardless of which fonts happen to be installed. System faces remain in the
+ * stacks as a fallback for the brief moment before the web fonts load.
  */
+
+/* Fraunces — serif display (wordmark, invoice number, section headings, words) */
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 400; font-display: swap; src: url("../assets/fonts/fraunces-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 600; font-display: swap; src: url("../assets/fonts/fraunces-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 700; font-display: swap; src: url("../assets/fonts/fraunces-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Fraunces"; font-style: italic; font-weight: 400; font-display: swap; src: url("../assets/fonts/fraunces-400-italic.woff2") format("woff2"); }
+@font-face { font-family: "Fraunces"; font-style: italic; font-weight: 600; font-display: swap; src: url("../assets/fonts/fraunces-600-italic.woff2") format("woff2"); }
+
+/* Inter Tight — sans body / UI */
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 400; font-display: swap; src: url("../assets/fonts/intertight-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 500; font-display: swap; src: url("../assets/fonts/intertight-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 600; font-display: swap; src: url("../assets/fonts/intertight-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Inter Tight"; font-style: normal; font-weight: 700; font-display: swap; src: url("../assets/fonts/intertight-700-normal.woff2") format("woff2"); }
+
+/* IBM Plex Mono — tabular figures for every money amount */
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../assets/fonts/plexmono-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("../assets/fonts/plexmono-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url("../assets/fonts/plexmono-600-normal.woff2") format("woff2"); }
 
 :root {
   /* Palette */

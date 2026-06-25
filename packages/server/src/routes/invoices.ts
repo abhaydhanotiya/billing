@@ -137,6 +137,38 @@ export async function invoiceRoutes(app: FastifyInstance) {
     return { invoice };
   });
 
+  // Correct the bill-to details (name, company, address, GSTIN, phone) on any
+  // invoice — these are descriptive labels, not GST figures, so they're safe to
+  // fix even after finalizing. Admin only; recorded in the audit log.
+  app.patch("/invoices/:id/bill-to", { preHandler: [adminOnly] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const body = z
+      .object({
+        name: z.string().min(1).optional(),
+        company: z.string().optional(),
+        address: z.string().optional(),
+        gstin: z.string().optional(),
+        phone: z.string().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: body.error.flatten() });
+    const d = body.data;
+    const invoice = await prisma.invoice.update({
+      where: { id },
+      data: {
+        ...(d.name !== undefined ? { billToName: d.name } : {}),
+        ...(d.company !== undefined ? { billToCompany: d.company || null } : {}),
+        ...(d.address !== undefined ? { billToAddress: d.address || null } : {}),
+        ...(d.gstin !== undefined ? { billToGstin: d.gstin || null } : {}),
+        ...(d.phone !== undefined ? { billToPhone: d.phone || null } : {}),
+      },
+    });
+    await prisma.auditLog.create({
+      data: { userId: req.user.id, action: "INVOICE_BILLTO_EDIT", entity: "Invoice", entityId: id },
+    });
+    return { invoice };
+  });
+
   // Delete an invoice. Drafts: anyone billing. Voided: admin only (leaves a gap in
   // the number series). Finalized: never — it must be voided first.
   app.delete("/invoices/:id", { preHandler: [billing] }, async (req, reply) => {

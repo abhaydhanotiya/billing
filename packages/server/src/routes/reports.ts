@@ -24,7 +24,8 @@ export async function reportRoutes(app: FastifyInstance) {
 
     const [agg, voids, payments] = await Promise.all([
       prisma.invoice.aggregate({
-        where: { status: "FINALIZED", finalizedAt: { gte: from, lte: to } },
+        // Sales are attributed to the bill's invoice date (not when it was finalized).
+        where: { status: "FINALIZED", invoiceDate: { gte: from, lte: to } },
         _count: true,
         _sum: { taxableValuePaise: true, totalTaxPaise: true, totalDiscountPaise: true, grandTotalPaise: true },
       }),
@@ -59,7 +60,7 @@ export async function reportRoutes(app: FastifyInstance) {
     const { from, to } = parseRange(req.query as { from?: string; to?: string });
     const lines = await prisma.invoiceLine.findMany({
       where: {
-        invoice: { status: "FINALIZED", mode: "GST", finalizedAt: { gte: from, lte: to } },
+        invoice: { status: "FINALIZED", mode: "GST", invoiceDate: { gte: from, lte: to } },
       },
       select: { gstRatePct: true, taxableValuePaise: true, cgstPaise: true, sgstPaise: true },
     });
@@ -103,7 +104,8 @@ export async function reportRoutes(app: FastifyInstance) {
   app.get("/reports/sales", { preHandler: [reports] }, async (req) => {
     const { from, to } = parseRange(req.query as { from?: string; to?: string });
     const agg = await prisma.invoice.aggregate({
-      where: { status: "FINALIZED", finalizedAt: { gte: from, lte: to } },
+      // By invoice date, so backdated bills count on their date, not when finalized.
+      where: { status: "FINALIZED", invoiceDate: { gte: from, lte: to } },
       _count: true,
       _sum: {
         taxableValuePaise: true,

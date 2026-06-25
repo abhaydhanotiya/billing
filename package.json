@@ -9,6 +9,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:server": "pnpm --filter @sanskar/server dev",
     "dev:desktop": "pnpm --filter @sanskar/desktop dev",
+    "release": "node scripts/build-release.mjs",
     "db:up": "scripts\\pg-start.cmd",
     "db:down": "scripts\\pg-stop.cmd",
     "db:status": "scripts\\pg-status.cmd",

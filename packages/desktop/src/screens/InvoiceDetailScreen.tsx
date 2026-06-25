@@ -10,6 +10,7 @@ import { formatAmount, formatINR, formatDate } from "../lib/format.js";
 import type { BusinessProfile, Invoice, InvoiceLine, PaymentMode } from "../lib/types.js";
 import { PaymentModal } from "../components/PaymentModal.js";
 import { PromptModal } from "../components/PromptModal.js";
+import { EditBillToModal } from "../components/EditBillToModal.js";
 
 export function InvoiceDetailScreen({ id }: { id: string }) {
   const toast = useToast();
@@ -17,6 +18,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   const [showPay, setShowPay] = useState(false);
   const [showVoid, setShowVoid] = useState(false);
+  const [showBillTo, setShowBillTo] = useState(false);
 
   const inv = useApi(() => api.get<{ invoice: Invoice }>(`/invoices/${id}`), [id]);
   const biz = useApi(() => api.get<{ profile: BusinessProfile | null }>("/business-profile"), []);
@@ -156,6 +158,7 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
           )}
           {invoice.status === "FINALIZED" && (
             <>
+              {isAdmin && <button className="btn" onClick={() => setShowBillTo(true)} title="Correct the bill-to details">Edit Bill-To</button>}
               <button className="btn" onClick={() => setShowPay(true)}>Record Payment</button>
               <button className="btn" onClick={savePdf} title="Save as PDF"><Icon name="bill" size={16} /> PDF</button>
               <button className="btn" onClick={shareWhatsApp} title="Send on WhatsApp"><Icon name="share" size={16} /> WhatsApp</button>
@@ -395,6 +398,17 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
           danger
           onCancel={() => setShowVoid(false)}
           onSubmit={voidInvoice}
+        />
+      )}
+
+      {showBillTo && (
+        <EditBillToModal
+          invoice={invoice}
+          onClose={() => setShowBillTo(false)}
+          onSaved={() => {
+            setShowBillTo(false);
+            inv.reload();
+          }}
         />
       )}
     </div>
