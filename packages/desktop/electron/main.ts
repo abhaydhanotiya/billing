@@ -1,6 +1,10 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
+import electronUpdater from "electron-updater";
+import fs from "node:fs";
 import path from "node:path";
 import { ensurePostgres, startServer, waitForHealth, stopServer } from "./backend.js";
+
+const { autoUpdater } = electronUpdater;
 
 // __dirname is provided natively in the CommonJS bundle (dist-electron/).
 // In dev, Vite serves the renderer; in production we load the built bundle.
@@ -60,6 +64,26 @@ ipcMain.handle("invoice:print", async () => {
   });
 });
 
+// Save the current page to a PDF file the user chooses; returns the saved path.
+ipcMain.handle("invoice:save-pdf", async (_e, suggestedName: string) => {
+  if (!mainWindow) return null;
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: "Save invoice as PDF",
+    defaultPath: suggestedName || "invoice.pdf",
+    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  });
+  if (canceled || !filePath) return null;
+  const data = await mainWindow.webContents.printToPDF({ pageSize: "A4", printBackground: true });
+  await fs.promises.writeFile(filePath, data);
+  return filePath;
+});
+
+// Open a URL (WhatsApp wa.me, mailto:, etc.) in the OS default handler.
+ipcMain.handle("app:open-external", async (_e, url: string) => {
+  await shell.openExternal(url);
+  return true;
+});
+
 app.whenReady().then(async () => {
   if (EMBED_BACKEND) {
     ensurePostgres();
@@ -68,6 +92,12 @@ app.whenReady().then(async () => {
     if (!up) console.error("[backend] API did not become healthy in time — UI may show 'server unreachable'.");
   }
   createWindow();
+
+  // Check GitHub Releases for a newer version and download/notify (packaged only).
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => console.error("[update] check failed:", err));
+  }
 });
 
 app.on("window-all-closed", () => {

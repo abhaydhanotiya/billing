@@ -6,6 +6,7 @@
  */
 import { app, utilityProcess, type UtilityProcess } from "electron";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
 
@@ -15,15 +16,54 @@ const PG_BIN = process.env.SP_PG_BIN ?? path.join(PG_DIR, "pgsql", "bin");
 const PG_DATA = process.env.SP_PG_DATA ?? path.join(PG_DIR, "data");
 const PG_PORT = process.env.SP_PG_PORT ?? "5433";
 const API_PORT = process.env.PORT ?? "4000";
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  `postgresql://postgres:postgres@localhost:${PG_PORT}/sanskar?schema=public`;
 
 let serverProc: UtilityProcess | null = null;
 
 function log(...args: unknown[]) {
   console.log("[backend]", ...args);
 }
+
+/** The server's config file (DATABASE_URL etc.) shipped beside the bundle. */
+function envFilePath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "server", ".env")
+    : path.join(__dirname, "..", "..", "server", ".env");
+}
+
+/** Minimal KEY=VALUE parser for the shipped .env (handles quotes + # comments). */
+function loadServerEnv(): Record<string, string> {
+  const out: Record<string, string> = {};
+  try {
+    const content = fs.readFileSync(envFilePath(), "utf8").toString();
+    for (const raw of content.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eq = line.indexOf("=");
+      if (eq === -1) continue;
+      const key = line.slice(0, eq).trim();
+      let val = line.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      out[key] = val;
+    }
+  } catch {
+    /* no .env shipped — fall back to a local default below */
+  }
+  return out;
+}
+
+const fileEnv = loadServerEnv();
+const DATABASE_URL =
+  fileEnv.DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  `postgresql://postgres:postgres@localhost:${PG_PORT}/sanskar?schema=public`;
+
+/** A local DB means we manage Postgres ourselves; a cloud URL (Supabase) we don't. */
+const usingLocalDb = /localhost|127\.0\.0\.1/.test(DATABASE_URL);
 
 function pgCtl(args: string[], opts: Parameters<typeof spawnSync>[2] = {}) {
   return spawnSync(path.join(PG_BIN, "pg_ctl.exe"), args, {
@@ -33,8 +73,12 @@ function pgCtl(args: string[], opts: Parameters<typeof spawnSync>[2] = {}) {
   });
 }
 
-/** Start the portable PostgreSQL if it isn't already running. */
+/** Start the portable PostgreSQL if it isn't already running (local DB only). */
 export function ensurePostgres() {
+  if (!usingLocalDb) {
+    log("Using a cloud database (Supabase) — skipping local PostgreSQL.");
+    return;
+  }
   const status = pgCtl(["-D", PG_DATA, "status"]);
   if (status.status === 0) {
     log("PostgreSQL already running.");
@@ -48,7 +92,7 @@ export function ensurePostgres() {
     { stdio: "ignore" },
   );
   if (res.status !== 0) {
-    log("WARNING: could not start PostgreSQL:", res.error?.message || (res.stderr || res.stdout || "").trim());
+    log("WARNING: could not start PostgreSQL:", res.error?.message || String(res.stderr || res.stdout || "").trim());
   } else {
     log("PostgreSQL started.");
   }
@@ -71,13 +115,15 @@ export function startServer() {
     stdio: "pipe",
     env: {
       ...process.env,
+      // Values from the shipped .env (DATABASE_URL, DIRECT_URL, JWT_SECRET, prefixes)
+      ...fileEnv,
       NODE_ENV: "production",
       PORT: API_PORT,
       HOST: "0.0.0.0",
       DATABASE_URL,
-      JWT_SECRET: process.env.JWT_SECRET ?? "sanskar-local-secret-change-me",
-      INVOICE_PREFIX_GST: process.env.INVOICE_PREFIX_GST ?? "SR",
-      INVOICE_PREFIX_NONGST: process.env.INVOICE_PREFIX_NONGST ?? "SRE",
+      JWT_SECRET: fileEnv.JWT_SECRET ?? process.env.JWT_SECRET ?? "sanskar-local-secret-change-me",
+      INVOICE_PREFIX_GST: fileEnv.INVOICE_PREFIX_GST ?? "SR",
+      INVOICE_PREFIX_NONGST: fileEnv.INVOICE_PREFIX_NONGST ?? "SRE",
     },
   });
   serverProc.stdout?.on("data", (d) => process.stdout.write(`[server] ${d}`));

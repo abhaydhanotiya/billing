@@ -7,8 +7,52 @@ function parseRange(q: { from?: string; to?: string }) {
   return { from, to };
 }
 
+/** Start/end of a single local calendar day from a YYYY-MM-DD string. */
+function dayRange(dateStr?: string) {
+  const base = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date();
+  const from = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const to = new Date(from.getTime() + 86_400_000 - 1);
+  return { from, to };
+}
+
 export async function reportRoutes(app: FastifyInstance) {
   const reports = app.authorize(["ADMIN", "RECEPTION"]);
+
+  // Day-close: end-of-day reconciliation — bills, collections by payment mode, totals, voids.
+  app.get("/reports/day-close", { preHandler: [reports] }, async (req) => {
+    const { from, to } = dayRange((req.query as { date?: string }).date);
+
+    const [agg, voids, payments] = await Promise.all([
+      prisma.invoice.aggregate({
+        where: { status: "FINALIZED", finalizedAt: { gte: from, lte: to } },
+        _count: true,
+        _sum: { taxableValuePaise: true, totalTaxPaise: true, totalDiscountPaise: true, grandTotalPaise: true },
+      }),
+      prisma.invoice.count({ where: { status: "VOID", voidedAt: { gte: from, lte: to } } }),
+      prisma.payment.groupBy({
+        by: ["mode"],
+        where: { receivedAt: { gte: from, lte: to } },
+        _sum: { amountPaise: true },
+        _count: true,
+      }),
+    ]);
+
+    const collections = payments.map((p) => ({
+      mode: p.mode,
+      amountPaise: p._sum.amountPaise ?? 0n,
+      count: p._count,
+    }));
+    const collectedPaise = collections.reduce((s, c) => s + Number(c.amountPaise), 0);
+
+    return {
+      date: from,
+      invoiceCount: agg._count,
+      voidCount: voids,
+      totals: agg._sum,
+      collections,
+      collectedPaise,
+    };
+  });
 
   // GST summary grouped by rate over a date range — the figure the accountant files.
   app.get("/reports/gst", { preHandler: [reports] }, async (req) => {

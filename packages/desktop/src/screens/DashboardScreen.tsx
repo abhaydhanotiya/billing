@@ -5,7 +5,12 @@ import { useHasRole } from "../lib/auth.js";
 import { api } from "../lib/api.js";
 import { navigate } from "../lib/router.js";
 import { formatINR } from "../lib/format.js";
-import type { Room } from "../lib/types.js";
+import type { DayClose, Room } from "../lib/types.js";
+
+function todayStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
+}
 
 function todayRange() {
   const now = new Date();
@@ -31,9 +36,15 @@ export function DashboardScreen() {
     [canSeeSales],
   );
 
+  const collect = useApi(
+    () => (canSeeSales ? api.get<DayClose>(`/reports/day-close?date=${todayStr()}`) : Promise.resolve(null)),
+    [canSeeSales],
+  );
+
   const roomList = rooms.data?.rooms ?? [];
   const occupied = roomList.filter((r) => r.status === "OCCUPIED").length;
   const occupancy = roomList.length ? Math.round((occupied / roomList.length) * 100) : 0;
+  const collections = collect.data?.collections ?? [];
 
   return (
     <div className="screen">
@@ -72,6 +83,24 @@ export function DashboardScreen() {
         />
       </div>
 
+      {canSeeSales && collections.length > 0 && (
+        <section className="card card-pad" style={{ marginTop: 22 }}>
+          <div className="row spread" style={{ marginBottom: 14 }}>
+            <h3>Today's Collections</h3>
+            <button className="btn btn-sm" onClick={() => navigate("/day-close")}>Day close</button>
+          </div>
+          <div className="collect-grid">
+            {collections.map((c) => (
+              <div key={c.mode} className="collect-card">
+                <div className="collect-mode">{c.mode}</div>
+                <div className="collect-amt money">{formatINR(c.amountPaise)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{c.count} payment{c.count !== 1 ? "s" : ""}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="card card-pad" style={{ marginTop: 22 }}>
         <div className="row spread" style={{ marginBottom: 16 }}>
           <h3>Room Status</h3>
@@ -89,7 +118,12 @@ export function DashboardScreen() {
         ) : (
           <div className="room-board">
             {roomList.map((r) => (
-              <div key={r.id} className={`room-tile st-${r.status.toLowerCase()}`}>
+              <div
+                key={r.id}
+                className={`room-tile st-${r.status.toLowerCase()} room-tile-clickable`}
+                onClick={() => navigate(`/rooms/${r.id}`)}
+                title={`View bookings for room ${r.number}`}
+              >
                 <div className="room-no">{r.number}</div>
                 <div className="room-type muted">{r.roomType?.name ?? ""}</div>
                 <StatusBadge status={r.status} />

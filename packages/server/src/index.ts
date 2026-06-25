@@ -1,3 +1,4 @@
+import "dotenv/config"; // load .env into process.env before anything reads config
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { prisma } from "./db.js";

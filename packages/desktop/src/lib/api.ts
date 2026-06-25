@@ -88,4 +88,13 @@ export const api = {
       return false;
     }
   },
+  /** DB reachability — drives the connection indicator + Supabase keep-alive. */
+  dbHealth: async (): Promise<boolean> => {
+    try {
+      const res = await fetch(`${getServerUrl()}/health/db`);
+      return res.ok;
+    } catch {
+      return false;
+    }
+  },
 };

@@ -23,6 +23,15 @@ fs.mkdirSync(path.join(out, "dist"), { recursive: true });
 // 1. The bundled server.
 fs.copyFileSync(path.join(serverPkg, "dist", "server.cjs"), path.join(out, "dist", "server.cjs"));
 
+// 1b. The server config (.env) — DATABASE_URL etc. so the packaged app can connect.
+const envSrc = path.join(serverPkg, ".env");
+if (fs.existsSync(envSrc)) {
+  fs.copyFileSync(envSrc, path.join(out, ".env"));
+  console.log("Bundled server/.env (database config).");
+} else {
+  console.warn("WARNING: packages/server/.env not found — packaged app will use local-DB defaults.");
+}
+
 // 2. Prisma client + generated client (follow the pnpm symlink to the real dir).
 const clientReal = fs.realpathSync(path.join(serverPkg, "node_modules", "@prisma", "client"));
 const realNodeModules = path.resolve(clientReal, "..", ".."); // .../node_modules

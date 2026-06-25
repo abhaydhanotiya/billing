@@ -15,6 +15,13 @@ const roomSchema = z.object({
   roomTypeId: z.string().min(1),
 });
 
+const roomUpdateSchema = z.object({
+  number: z.string().min(1).optional(),
+  floor: z.string().optional(),
+  roomTypeId: z.string().min(1).optional(),
+  active: z.boolean().optional(),
+});
+
 const statusSchema = z.object({
   status: z.enum(["VACANT", "OCCUPIED", "RESERVED", "CLEANING", "MAINTENANCE"]),
 });
@@ -36,6 +43,19 @@ export async function roomRoutes(app: FastifyInstance) {
     return reply.code(201).send({ roomType });
   });
 
+  // Edit a room type's rate / GST / name.
+  app.patch("/room-types/:id", { preHandler: [app.authorize(["ADMIN"])] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = roomTypeSchema.partial().safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { baseRatePaise, ...rest } = parsed.data;
+    const roomType = await prisma.roomType.update({
+      where: { id },
+      data: { ...rest, ...(baseRatePaise != null ? { baseRatePaise: BigInt(baseRatePaise) } : {}) },
+    });
+    return { roomType };
+  });
+
   app.get("/rooms", { preHandler: [app.authenticate] }, async () => ({
     rooms: await prisma.room.findMany({
       where: { active: true },
@@ -44,11 +64,50 @@ export async function roomRoutes(app: FastifyInstance) {
     }),
   }));
 
+  // One room with its full booking history (guest + linked bill).
+  app.get("/rooms/:id", { preHandler: [app.authenticate] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const room = await prisma.room.findUnique({
+      where: { id },
+      include: {
+        roomType: true,
+        stays: {
+          include: {
+            guest: true,
+            invoice: { select: { id: true, number: true, status: true, grandTotalPaise: true } },
+          },
+          orderBy: { checkIn: "desc" },
+        },
+      },
+    });
+    if (!room) return reply.code(404).send({ error: "Room not found" });
+    return { room };
+  });
+
   app.post("/rooms", { preHandler: [app.authorize(["ADMIN"])] }, async (req, reply) => {
     const parsed = roomSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const room = await prisma.room.create({ data: parsed.data });
+    const exists = await prisma.room.findUnique({ where: { number: parsed.data.number } });
+    if (exists) return reply.code(409).send({ error: `Room ${parsed.data.number} already exists` });
+    const room = await prisma.room.create({ data: parsed.data, include: { roomType: true } });
     return reply.code(201).send({ room });
+  });
+
+  app.patch("/rooms/:id", { preHandler: [app.authorize(["ADMIN"])] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = roomUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const room = await prisma.room.update({ where: { id }, data: parsed.data, include: { roomType: true } });
+    return { room };
+  });
+
+  // Soft-delete: deactivate so historical stays/invoices keep their reference.
+  app.delete("/rooms/:id", { preHandler: [app.authorize(["ADMIN"])] }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const active = await prisma.stay.count({ where: { roomId: id, status: "CHECKED_IN" } });
+    if (active > 0) return reply.code(409).send({ error: "Room has a checked-in guest. Check out first." });
+    const room = await prisma.room.update({ where: { id }, data: { active: false } });
+    return { room };
   });
 
   app.patch("/rooms/:id/status", { preHandler: [manage] }, async (req, reply) => {

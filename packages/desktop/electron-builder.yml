@@ -16,6 +16,12 @@ extraResources:
   - from: resources/server
     to: server
 asar: true
+# Auto-update source: GitHub Releases (free). Publish releases with the assets
+# (.exe, latest.yml, .blockmap) and the installed app updates itself on launch.
+publish:
+  provider: github
+  owner: abhaydhanotiya
+  repo: billing
 win:
   target:
     - nsis

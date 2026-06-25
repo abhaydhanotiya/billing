@@ -12,7 +12,10 @@ import { orderRoutes } from "./routes/orders.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 import { paymentRoutes } from "./routes/payments.js";
 import { reportRoutes } from "./routes/reports.js";
+import { userRoutes } from "./routes/users.js";
+import { auditRoutes } from "./routes/audit.js";
 import { HttpError } from "./services/invoiceService.js";
+import { prisma } from "./db.js";
 
 // Money is stored as BigInt; emit it as a JSON number (paise stay within safe-int
 // range for any realistic bill). The desktop client treats every *Paise field as paise.
@@ -22,6 +25,8 @@ import { HttpError } from "./services/invoiceService.js";
 
 export async function buildApp() {
   const app = Fastify({
+    // Logos are sent as base64 data URIs, so allow a larger JSON body (8 MB).
+    bodyLimit: 8 * 1024 * 1024,
     logger: {
       level: config.isProduction ? "info" : "debug",
       transport: config.isProduction
@@ -54,6 +59,17 @@ export async function buildApp() {
 
   app.get("/health", async () => ({ status: "ok" }));
 
+  // DB reachability — used by the client's connection indicator, and the periodic
+  // ping doubles as a keep-alive that helps prevent Supabase free-tier auto-pause.
+  app.get("/health/db", async (_req, reply) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      return { db: "ok" };
+    } catch {
+      return reply.code(503).send({ db: "down" });
+    }
+  });
+
   // All API routes under /api.
   await app.register(
     async (api) => {
@@ -67,6 +83,8 @@ export async function buildApp() {
       await api.register(invoiceRoutes);
       await api.register(paymentRoutes);
       await api.register(reportRoutes);
+      await api.register(userRoutes);
+      await api.register(auditRoutes);
     },
     { prefix: "/api" },
   );

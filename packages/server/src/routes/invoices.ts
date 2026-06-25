@@ -45,14 +45,38 @@ export async function invoiceRoutes(app: FastifyInstance) {
   const billing = app.authorize(["RECEPTION", "RESTAURANT"]);
   const adminOnly = app.authorize(["ADMIN"]);
 
-  // List invoices (filter by status / FY series, newest first).
+  // List/search invoices: status, FY series, free-text (number or bill-to), date range.
   app.get("/invoices", { preHandler: [app.authenticate] }, async (req) => {
-    const q = req.query as { status?: string; fySeries?: string; take?: string };
+    const q = req.query as {
+      status?: string;
+      fySeries?: string;
+      take?: string;
+      search?: string;
+      from?: string;
+      to?: string;
+    };
+    const search = q.search?.trim();
+    const createdAt =
+      q.from || q.to
+        ? { gte: q.from ? new Date(q.from) : undefined, lte: q.to ? new Date(q.to) : undefined }
+        : undefined;
+
     const invoices = await prisma.invoice.findMany({
       where: {
         status: q.status as never,
         fySeries: q.fySeries,
+        createdAt,
+        ...(search
+          ? {
+              OR: [
+                { number: { contains: search, mode: "insensitive" } },
+                { billToName: { contains: search, mode: "insensitive" } },
+                { billToPhone: { contains: search } },
+              ],
+            }
+          : {}),
       },
+      include: { payments: { select: { amountPaise: true } } },
       orderBy: { createdAt: "desc" },
       take: q.take ? Math.min(Number(q.take), 500) : 100,
     });

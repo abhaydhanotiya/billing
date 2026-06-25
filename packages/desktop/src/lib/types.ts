@@ -151,6 +151,39 @@ export interface Invoice {
   stays?: Stay[];
 }
 
+export interface StaffUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: Role;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  entity: string;
+  entityId?: string | null;
+  detail?: string | null;
+  createdAt: string;
+  user?: { username: string; displayName: string } | null;
+}
+
+export interface DayClose {
+  date: string;
+  invoiceCount: number;
+  voidCount: number;
+  totals: {
+    taxableValuePaise: number | null;
+    totalTaxPaise: number | null;
+    totalDiscountPaise: number | null;
+    grandTotalPaise: number | null;
+  };
+  collections: { mode: PaymentMode; amountPaise: number; count: number }[];
+  collectedPaise: number;
+}
+
 export interface BusinessProfile {
   id: number;
   legalName: string;

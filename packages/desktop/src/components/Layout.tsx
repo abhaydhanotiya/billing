@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 import { useAuth } from "../lib/auth.js";
 import { navigate } from "../lib/router.js";
+import { useApi } from "../lib/useApi.js";
+import { api } from "../lib/api.js";
+import { useConnection } from "../lib/useConnection.js";
 import { Icon } from "./Icon.js";
-import type { Role } from "../lib/types.js";
+import type { BusinessProfile, Role } from "../lib/types.js";
 
 interface NavItem {
   key: string;
@@ -20,12 +23,18 @@ const NAV: NavItem[] = [
   { key: "menu", label: "Menu", icon: "food", roles: ["RESTAURANT"] },
   { key: "guests", label: "Guests", icon: "users", roles: ["RECEPTION"] },
   { key: "reports", label: "Reports", icon: "chart", roles: ["RECEPTION"] },
+  { key: "day-close", label: "Day Close", icon: "daclose", roles: ["RECEPTION"] },
+  { key: "audit", label: "Audit Log", icon: "shield", roles: ["RECEPTION"] },
+  { key: "staff", label: "Staff", icon: "users", roles: [] }, // ADMIN only
   { key: "settings", label: "Settings", icon: "gear", roles: [] }, // ADMIN only
 ];
 
 export function Layout({ active, children }: { active: string; children: ReactNode }) {
   const { user, logout } = useAuth();
   const role = user?.role ?? "RECEPTION";
+  const biz = useApi(() => api.get<{ profile: BusinessProfile | null }>("/business-profile"), []);
+  const logo = biz.data?.profile?.logo;
+  const online = useConnection();
 
   const visible = NAV.filter((n) => !n.roles || role === "ADMIN" || n.roles.includes(role));
 
@@ -33,11 +42,17 @@ export function Layout({ active, children }: { active: string; children: ReactNo
     <div className="layout">
       <aside className="sidebar no-print">
         <div className="brand">
-          <div className="brand-mark">SP</div>
-          <div className="brand-text">
-            <div className="brand-name">Sanskar Palace</div>
-            <div className="brand-sub">Billing &amp; Front Desk</div>
-          </div>
+          {logo ? (
+            <img className="brand-logo" src={logo} alt="Sanskar Palace" />
+          ) : (
+            <>
+              <div className="brand-mark">SP</div>
+              <div className="brand-text">
+                <div className="brand-name">Sanskar Palace</div>
+                <div className="brand-sub">Billing &amp; Front Desk</div>
+              </div>
+            </>
+          )}
         </div>
 
         <nav className="nav">
@@ -67,7 +82,15 @@ export function Layout({ active, children }: { active: string; children: ReactNo
         </div>
       </aside>
 
-      <main className="main">{children}</main>
+      <main className="main">
+        {!online && (
+          <div className="offline-banner no-print">
+            <Icon name="bill" size={15} /> No connection to the database — billing is paused until
+            the internet/server is back. Your last actions are safe.
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

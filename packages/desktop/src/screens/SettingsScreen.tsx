@@ -75,16 +75,34 @@ export function SettingsScreen() {
   function onLogoFile(file: File | undefined) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.push("error", "Please choose an image file (PNG/JPG).");
+      toast.push("error", "Please choose an image file (PNG/JPG/SVG).");
       return;
     }
-    if (file.size > 600_000) {
-      toast.push("error", "Logo is too large — please use an image under 600 KB.");
+    if (file.size > 2_000_000) {
+      toast.push("error", "Logo is too large — please use an image under 2 MB.");
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, logo: String(reader.result) }));
-    reader.readAsDataURL(file); // stored as a data: URI on the profile
+    reader.onload = async () => {
+      const dataUrl = String(reader.result);
+      setForm((f) => ({ ...f, logo: dataUrl })); // optimistic preview
+      try {
+        // Server stores it in Supabase Storage (or inline if not configured) and
+        // returns the URL it saved on the profile.
+        const res = await api.post<{ url: string; storage: string }>("/business-profile/logo", {
+          dataUrl,
+        });
+        setForm((f) => ({ ...f, logo: res.url }));
+        toast.push(
+          "ok",
+          res.storage === "supabase" ? "Logo uploaded to Supabase Storage." : "Logo saved.",
+        );
+        biz.reload();
+      } catch (e) {
+        toast.push("error", e instanceof ApiError ? e.message : "Logo upload failed.");
+      }
+    };
+    reader.readAsDataURL(file);
   }
 
   function saveServer() {

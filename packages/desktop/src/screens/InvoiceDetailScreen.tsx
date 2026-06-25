@@ -78,6 +78,34 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
     profile?.email,
   ].filter(Boolean);
 
+  const shareMessage = () =>
+    `${sellerName}\nInvoice ${invoice.number ?? ""} — Total ${formatINR(invoice.grandTotalPaise)}.\nThank you for staying with us.`;
+
+  const savePdf = async () => {
+    if (!window.desktop) return window.print();
+    const path = await window.desktop.savePdf(`${(invoice.number ?? "invoice").replace(/\//g, "-")}.pdf`);
+    if (path) toast.push("ok", "PDF saved.");
+  };
+  const shareWhatsApp = () => {
+    const phone = (invoice.billToPhone ?? "").replace(/\D/g, "");
+    const num = phone.length === 10 ? `91${phone}` : phone; // default India code
+    const url = `https://wa.me/${num}?text=${encodeURIComponent(shareMessage())}`;
+    if (window.desktop) window.desktop.openExternal(url);
+    else window.open(url, "_blank");
+  };
+  const shareEmail = () => {
+    const to = invoice.guest?.email ?? "";
+    const url = `mailto:${to}?subject=${encodeURIComponent(`Invoice ${invoice.number ?? ""} — ${sellerName}`)}&body=${encodeURIComponent(shareMessage())}`;
+    if (window.desktop) window.desktop.openExternal(url);
+    else window.open(url);
+  };
+  const printReceipt = () => {
+    // Swap to the 80mm receipt layout for this print only.
+    document.body.classList.add("printing-receipt");
+    window.print();
+    setTimeout(() => document.body.classList.remove("printing-receipt"), 300);
+  };
+
   return (
     <div className="screen">
       {/* Toolbar (hidden on print) */}
@@ -95,13 +123,19 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
           {invoice.status === "FINALIZED" && (
             <>
               <button className="btn" onClick={() => setShowPay(true)}>Record Payment</button>
+              <button className="btn" onClick={savePdf} title="Save as PDF"><Icon name="bill" size={16} /> PDF</button>
+              <button className="btn" onClick={shareWhatsApp} title="Send on WhatsApp"><Icon name="share" size={16} /> WhatsApp</button>
+              <button className="btn" onClick={shareEmail} title="Email the bill"><Icon name="share" size={16} /> Email</button>
               {isAdmin && (
                 <button className="btn btn-danger" disabled={busy} onClick={voidInvoice}>Void</button>
               )}
             </>
           )}
+          <button className="btn" onClick={printReceipt} disabled={invoice.status === "DRAFT"} title="Print 80mm thermal receipt">
+            <Icon name="print" size={16} /> Receipt
+          </button>
           <button className="btn btn-accent" onClick={() => window.print()} disabled={invoice.status === "DRAFT"}>
-            <Icon name="print" size={16} /> Print
+            <Icon name="print" size={16} /> A4 Print
           </button>
         </div>
       </div>
@@ -267,6 +301,46 @@ export function InvoiceDetailScreen({ id }: { id: string }) {
             <span>This is a computer-generated invoice</span>
           </div>
         </div>
+      </div>
+
+      {/* Compact 80mm thermal receipt — hidden on screen, shown only when printing a receipt */}
+      <div className="receipt-doc">
+        <div className="rcpt-head">
+          <div className="rcpt-name">{sellerName}</div>
+          <div className="rcpt-sub">Hotel &amp; Resort</div>
+          {profile?.address && <div className="rcpt-line">{profile.address}{profile.city ? `, ${profile.city}` : ""}</div>}
+          {profile?.phone && <div className="rcpt-line">Ph: {profile.phone}</div>}
+          {profile?.gstin && <div className="rcpt-line">GSTIN: {profile.gstin}</div>}
+        </div>
+        <div className="rcpt-rule" />
+        <div className="rcpt-row"><span>{isGst ? "Tax Invoice" : "Invoice"}</span><span>{invoice.number ?? "—"}</span></div>
+        <div className="rcpt-row"><span>Date</span><span>{formatDate(invoice.finalizedAt ?? invoice.createdAt)}</span></div>
+        <div className="rcpt-row"><span>To</span><span>{invoice.billToName}</span></div>
+        <div className="rcpt-rule dashed" />
+        {lines.map((l) => (
+          <div className="rcpt-item" key={l.id}>
+            <div className="rcpt-item-name">{l.description}</div>
+            <div className="rcpt-item-line">
+              <span>{l.qty} × {formatAmount(l.unitPricePaise)}</span>
+              <span>{formatAmount(l.grossPaise)}</span>
+            </div>
+          </div>
+        ))}
+        <div className="rcpt-rule dashed" />
+        <div className="rcpt-row"><span>Subtotal</span><span>{formatAmount(invoice.grossPaise)}</span></div>
+        {invoice.totalDiscountPaise > 0 && (
+          <div className="rcpt-row"><span>Discount</span><span>– {formatAmount(invoice.totalDiscountPaise)}</span></div>
+        )}
+        {isGst && <div className="rcpt-row"><span>GST (CGST+SGST)</span><span>{formatAmount(invoice.totalTaxPaise)}</span></div>}
+        {invoice.roundOffPaise !== 0 && (
+          <div className="rcpt-row"><span>Round off</span><span>{invoice.roundOffPaise > 0 ? "+" : "–"} {formatAmount(Math.abs(invoice.roundOffPaise))}</span></div>
+        )}
+        <div className="rcpt-grand"><span>TOTAL</span><span>{formatINR(invoice.grandTotalPaise)}</span></div>
+        {paid > 0 && <div className="rcpt-row"><span>Paid ({paymentMode ?? "—"})</span><span>{formatAmount(paid)}</span></div>}
+        <div className="rcpt-rule dashed" />
+        <div className="rcpt-foot">Thank you for visiting!</div>
+        {jurisdiction && <div className="rcpt-foot rcpt-small">Subject to {jurisdiction} jurisdiction</div>}
+        <div className="rcpt-foot rcpt-small">Computer-generated receipt</div>
       </div>
 
       {showPay && (

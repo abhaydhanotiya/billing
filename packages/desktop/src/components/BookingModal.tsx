@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "./Icon.js";
 import { api, ApiError } from "../lib/api.js";
 import { useApi } from "../lib/useApi.js";
@@ -6,7 +6,15 @@ import { formatINR, rupeesToPaise } from "../lib/format.js";
 import type { Guest, Room } from "../lib/types.js";
 
 /** Create a booking: pick/create guest, pick a vacant room, set rate + dates. */
-export function BookingModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+export function BookingModal({
+  onClose,
+  onCreated,
+  roomId: initialRoomId,
+}: {
+  onClose: () => void;
+  onCreated: () => void;
+  roomId?: string;
+}) {
   const rooms = useApi(() => api.get<{ rooms: Room[] }>("/rooms"), []);
 
   // Guest: either an existing one (guestId) or a new name+phone.
@@ -22,7 +30,7 @@ export function BookingModal({ onClose, onCreated }: { onClose: () => void; onCr
     [guestSearch],
   );
 
-  const [roomId, setRoomId] = useState("");
+  const [roomId, setRoomId] = useState(initialRoomId ?? "");
   const [rate, setRate] = useState("");
   const [gst, setGst] = useState(5);
   const nowLocal = useMemo(() => {
@@ -42,6 +50,17 @@ export function BookingModal({ onClose, onCreated }: { onClose: () => void; onCr
   const vacantRooms = (rooms.data?.rooms ?? []).filter(
     (r) => r.status === "VACANT" || r.status === "RESERVED",
   );
+
+  // When opened for a specific room, prefill its rate/GST once rooms load.
+  useEffect(() => {
+    if (!initialRoomId || rate) return;
+    const room = rooms.data?.rooms.find((r) => r.id === initialRoomId);
+    if (room?.roomType) {
+      setRate(String(room.roomType.baseRatePaise / 100));
+      setGst(room.roomType.gstRatePct);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms.data, initialRoomId]);
 
   function pickRoom(id: string) {
     setRoomId(id);

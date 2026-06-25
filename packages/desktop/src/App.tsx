@@ -8,9 +8,13 @@ import { BookingsScreen } from "./screens/BookingsScreen.js";
 import { InvoicesScreen } from "./screens/InvoicesScreen.js";
 import { InvoiceDetailScreen } from "./screens/InvoiceDetailScreen.js";
 import { RoomsScreen } from "./screens/RoomsScreen.js";
+import { RoomDetailScreen } from "./screens/RoomDetailScreen.js";
 import { MenuScreen } from "./screens/MenuScreen.js";
 import { GuestsScreen } from "./screens/GuestsScreen.js";
 import { ReportsScreen } from "./screens/ReportsScreen.js";
+import { DayCloseScreen } from "./screens/DayCloseScreen.js";
+import { StaffScreen } from "./screens/StaffScreen.js";
+import { AuditScreen } from "./screens/AuditScreen.js";
 import { SettingsScreen } from "./screens/SettingsScreen.js";
 
 export function App() {
@@ -45,7 +49,7 @@ export function App() {
       screen = param ? <InvoiceDetailScreen id={param} /> : <InvoicesScreen />;
       break;
     case "rooms":
-      screen = <RoomsScreen />;
+      screen = param ? <RoomDetailScreen id={param} /> : <RoomsScreen />;
       break;
     case "menu":
       screen = <MenuScreen />;
@@ -55,6 +59,15 @@ export function App() {
       break;
     case "reports":
       screen = <ReportsScreen />;
+      break;
+    case "day-close":
+      screen = <DayCloseScreen />;
+      break;
+    case "staff":
+      screen = <StaffScreen />;
+      break;
+    case "audit":
+      screen = <AuditScreen />;
       break;
     case "settings":
       screen = <SettingsScreen />;

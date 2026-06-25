@@ -18,6 +18,9 @@ const paths: Record<string, string> = {
   calendar: "M3 4h18v18H3zM3 9h18M8 2v4M16 2v4",
   image: "M3 3h18v18H3zM3 16l5-5 4 4 3-3 6 6M9 8.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0",
   upload: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12",
+  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+  daclose: "M3 3v18h18M7 14l4-4 3 3 5-6",
+  share: "M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v14",
 };
 
 export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; size?: number }) {
