@@ -27,6 +27,7 @@
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("../assets/fonts/plexmono-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 500; font-display: swap; src: url("../assets/fonts/plexmono-500-normal.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 600; font-display: swap; src: url("../assets/fonts/plexmono-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("../assets/fonts/plexmono-700-normal.ttf") format("truetype"); }
 
 :root {
   /* Palette */
@@ -104,6 +105,10 @@ body {
     radial-gradient(circle at 88% 82%, rgba(124, 45, 45, 0.045), transparent 42%);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Never let the browser fake a bold/italic by smearing a glyph — if a weight
+     isn't bundled it falls back to the nearest real face instead. This is what
+     made the monospace money figures look doubled/overstruck when printed. */
+  font-synthesis: none;
 }
 
 h1,

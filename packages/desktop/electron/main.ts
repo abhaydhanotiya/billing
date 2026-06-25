@@ -51,7 +51,10 @@ ipcMain.handle("invoice:print-to-pdf", async () => {
   const data = await mainWindow.webContents.printToPDF({
     pageSize: "A4",
     printBackground: true,
-    margins: { marginType: "default" },
+    // No printer margins — the invoice's CSS @page rule owns the 12mm margins.
+    // Using "default" here would stack a second margin on top, shrinking the
+    // invoice and pushing it to the top-left corner of the page.
+    margins: { marginType: "none" },
   });
   return data.toString("base64");
 });
@@ -60,7 +63,10 @@ ipcMain.handle("invoice:print-to-pdf", async () => {
 ipcMain.handle("invoice:print", async () => {
   if (!mainWindow) return false;
   return new Promise<boolean>((resolve) => {
-    mainWindow!.webContents.print({ printBackground: true }, (success) => resolve(success));
+    mainWindow!.webContents.print(
+      { printBackground: true, margins: { marginType: "none" } },
+      (success) => resolve(success),
+    );
   });
 });
 
@@ -73,7 +79,11 @@ ipcMain.handle("invoice:save-pdf", async (_e, suggestedName: string) => {
     filters: [{ name: "PDF", extensions: ["pdf"] }],
   });
   if (canceled || !filePath) return null;
-  const data = await mainWindow.webContents.printToPDF({ pageSize: "A4", printBackground: true });
+  const data = await mainWindow.webContents.printToPDF({
+    pageSize: "A4",
+    printBackground: true,
+    margins: { marginType: "none" }, // CSS @page owns the margins (avoid double margin)
+  });
   await fs.promises.writeFile(filePath, data);
   return filePath;
 });
