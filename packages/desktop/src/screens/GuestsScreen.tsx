@@ -110,6 +110,7 @@ export function GuestsScreen() {
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Company</th>
                 <th>Phone</th>
                 <th>GSTIN</th>
                 <th>Added</th>
@@ -120,6 +121,7 @@ export function GuestsScreen() {
               {list.map((g) => (
                 <tr key={g.id}>
                   <td><strong>{g.name}</strong></td>
+                  <td className="muted">{g.company ?? "—"}</td>
                   <td className="muted">{g.phone ?? "—"}</td>
                   <td className="muted">{g.gstin ?? "—"}</td>
                   <td className="muted">{formatDate((g as Guest & { createdAt?: string }).createdAt)}</td>
